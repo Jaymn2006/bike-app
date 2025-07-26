@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bike App</title>
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body, html {
+      height: 100%;
+      width: 100%;
+    }
+
+    .app-container {
+      background-image: url('https://images.unsplash.com/photo-1590479773260-3bba4f1e3560?auto=format&fit=crop&w=1400&q=80');
+      background-size: cover;
+      background-position: center;
+      height: 100vh;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .overlay {
+      background-color: rgba(0, 0, 0, 0.6);
+      padding: 40px;
+      border-radius: 15px;
+      text-align: center;
+      color: #fff;
+      width: 90%;
+      max-width: 500px;
+      overflow-y: auto;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+    }
+
+    button {
+      background-color: #00cc66;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #00994d;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #mapContainer {
+      margin-top: 20px;
+      width: 100%;
+      height: 300px;
+    }
+
+    #locationOutput {
+      font-size: 14px;
+      margin-top: 10px;
+      color: #aaffaa;
+    }
+
+    #aboutApp {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #fff;
+    }
+
+    #termsConditions {
+      color: #fff;
+      margin-top: 15px;
+      font-size: 12px;
+      text-align: justify;
+    }
+
+    #termsLink {
+      color: #ffcc00;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div class="overlay">
+      <h1>🚲 Bike App</h1>
+
+      <!-- Registration -->
+      <div id="registrationSection">
+        <input type="email" id="email" placeholder="Enter your email" required />
+        <select id="role" required>
+          <option value="">Are you a rider or customer?</option>
+          <option value="rider">Rider</option>
+          <option value="customer">Customer</option>
+        </select>
+        <button onclick="register()">Register</button>
+      </div>
+
+      <!-- Dashboard -->
+      <div id="dashboard" class="hidden">
+        <p id="userInfo"></p>
+
+        <div id="customerActions" class="hidden">
+          <button onclick="requestRide()">📲 Request a Ride</button>
+          <p id="locationOutput"></p>
+        </div>
+
+        <div id="riderActions" class="hidden">
+          <p><strong>Waiting for ride requests...</strong></p>
+          <div id="requestBox" class="hidden">
+            <p><strong>New Ride Request Received!</strong></p>
+            <p>Customer Location:</p>
+            <p id="customerCoords"></p>
+            <button onclick="acceptRide()">✅ Accept Ride</button>
+          </div>
+        </div>
+
+        <!-- Map -->
+        <div id="mapContainer">
+          <div id="map"></div>
+        </div>
+        
+        <!-- About and Terms -->
+        <div id="aboutApp">
+          <p><strong>About the App</strong></p>
+          <p>This app was developed by <strong>Mwangi</strong>. It connects bike riders with customers who need rides.</p>
+        </div>
+
+        <div id="termsConditions">
+          <p><strong>Terms and Conditions:</strong></p>
+          <p>By using this app, you agree to the following:</p>
+          <ul>
+            <li>Only registered users can request or accept rides.</li>
+            <li>Data collected from your device will be used to track location for rides.</li>
+            <li>The app is not responsible for any damage or injury during rides.</li>
+          </ul>
+          <p id="termsLink" onclick="showTerms()">Read full terms and conditions</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let user = {};
+    let customerLocation = null;
+    let map;
+    let customerMarker;
+    let riderMarker;
+
+    function register() {
+      const email = document.getElementById("email").value;
+      const role = document.getElementById("role").value;
+
+      if (!email || !role) {
+        alert("Please enter email and select a role.");
+        return;
+      }
+
+      user = { email, role };
+      document.getElementById("registrationSection").classList.add("hidden");
+      document.getElementById("dashboard").classList.remove("hidden");
+      document.getElementById("userInfo").innerText = `Logged in as: ${email} (${role})`;
+
+      if (role === "customer") {
+        document.getElementById("customerActions").classList.remove("hidden");
+      } else {
+        document.getElementById("riderActions").classList.remove("hidden");
+      }
+    }
+
+    function requestRide() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(showLocation, showError);
+      } else {
+        alert("Geolocation not supported by this browser.");
+      }
+    }
+
+    function showLocation(position) {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      customerLocation = { lat, lon };
+      document.getElementById("locationOutput").innerText = `📍 Location: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+
+      // Show customer on map
+      if (customerMarker) customerMarker.setMap(null); // Remove previous marker
+      customerMarker = new google.maps.Marker({
+        position: { lat, lng: lon },
+        map: map,
+        title: 'Customer Location',
+      });
+
+      // Simulate sending ride request to rider
+      localStorage.setItem("rideRequest", JSON.stringify(customerLocation));
+      alert("Ride request sent to nearby rider.");
+
+      // Update map view
+      map.setCenter(new google.maps.LatLng(lat, lon));
+      map.setZoom(14);
+    }
+
+    function showError(error) {
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          alert("User denied the request for Geolocation.");
+          break;
+        case error.POSITION_UNAVAILABLE:
+          alert("Location information is unavailable.");
+          break;
+        case error.TIMEOUT:
+          alert("The request to get user location timed out.");
+          break;
+        default:
+          alert("An unknown error occurred.");
+          break;
+      }
+    }
+
+    // Rider receives ride request
+    window.addEventListener("storage", () => {
+      const request = localStorage.getItem("rideRequest");
+      if (user.role === "rider" && request) {
+        const coords = JSON.parse(request);
+        document.getElementById("requestBox").classList.remove("hidden");
+        document.getElementById("customerCoords").innerText = `${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`;
+        
+        // Show customer on map for rider
+        if (riderMarker) riderMarker.setMap(null); // Remove previous marker
+        riderMarker = new google.maps.Marker({
+          position: { lat: coords.lat, lng: coords.lon },
+          map: map,
+          title: 'Customer Location',
+        });
+
+        // Update map view
+        map.setCenter(new google.maps.LatLng(coords.lat, coords.lon));
+        map.setZoom(14);
+      }
+    });
+
+    function acceptRide() {
+      alert("✅ Ride accepted. Go to customer location.");
+      document.getElementById("requestBox").classList.add("hidden");
+      localStorage.removeItem("rideRequest");
+    }
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: -1.2833, lng: 36.8167 }, // Default map position
+        zoom: 14,
+      });
+    }
+
+    function showTerms() {
+      alert("Terms and Conditions:\n\n1. You agree to use the app only for ride requests and ride acceptances.\n2. We are not responsible for any damages or accidents during the ride.\n3. We may collect location data to provide the ride service.");
+    }
+  </script>
+</body>
+</html>
