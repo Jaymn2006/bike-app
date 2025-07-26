@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bike Ride App with Mapbox</title>
+  <!-- Include Mapbox CSS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.css" rel="stylesheet" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: white;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      border-radius: 10px;
+      margin-top: 30px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    p {
+      color: #555;
+      font-size: 1.1rem;
+    }
+
+    #map {
+      height: 400px;
+      width: 100%;
+      margin-top: 20px;
+      border-radius: 10px;
+    }
+
+    button {
+      padding: 12px 20px;
+      font-size: 16px;
+      margin-top: 20px;
+      cursor: pointer;
+      border-radius: 5px;
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+      font-weight: bold;
+      width: 100%;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    #ride-status {
+      margin-top: 15px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #333;
+    }
+
+    #ride-status.accepted {
+      color: green;
+    }
+
+    #ride-status.pending {
+      color: orange;
+    }
+
+    #ride-status.rejected {
+      color: red;
+    }
+
+    .about {
+      margin-top: 30px;
+      font-size: 1.1rem;
+      background-color: #f0f0f0;
+      padding: 20px;
+      border-radius: 10px;
+    }
+
+    .about h2 {
+      font-size: 1.6rem;
+      color: #333;
+    }
+
+    .about p {
+      font-size: 1rem;
+      color: #555;
+    }
+
+    .about .note {
+      font-style: italic;
+      color: #444;
+    }
+
+    .about .developers {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Bike Ride Request App</h1>
+    <p>Request a ride and track your location.</p>
+
+    <div id="map"></div>
+
+    <!-- Customer Ride Request Button -->
+    <button id="request-ride" onclick="requestRide()">Request Ride</button>
+
+    <!-- Rider Accept Ride Button -->
+    <button id="accept-ride" onclick="acceptRide()">Accept Ride</button>
+
+    <p id="ride-status" class="pending">No ride request yet.</p>
+  </div>
+
+  <!-- About Section -->
+  <div class="about">
+    <h2>About This App</h2>
+    <p>This app was created with the aim to make bike rides more efficient and easy for both customers and riders. The goal is to simplify the ride-requesting process and enhance the experience of both parties.</p>
+
+    <p class="note">"We believe in good collaboration, hard work, and dedication to the well-being of our community. This app is a step towards making transportation more accessible and efficient for everyone!"</p>
+
+    <p class="developers">Developed by: Mwangi & Joseph</p>
+  </div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.js"></script>
+  <script>
+    // Set your Mapbox access token here
+    mapboxgl.accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN'; // Replace with your Mapbox access token
+
+    // Initialize the map with Mapbox GL JS
+    var map = new mapboxgl.Map({
+      container: 'map', // The HTML container id where the map will render
+      style: 'mapbox://styles/mapbox/streets-v11', // Map style
+      center: [-0.09, 51.505], // Initial center of the map (Longitude, Latitude)
+      zoom: 13 // Initial zoom level
+    });
+
+    var customerLat, customerLon, riderAccepted = false;
+
+    // Request Ride (Customer side)
+    function requestRide() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+          customerLat = position.coords.latitude;
+          customerLon = position.coords.longitude;
+
+          // Set the map view to the customer's location
+          map.flyTo({
+            center: [customerLon, customerLat], // Fly to the customer's coordinates
+            zoom: 15 // Zoom into the customer's location
+          });
+
+          // Place a marker at the customer's location
+          new mapboxgl.Marker()
+            .setLngLat([customerLon, customerLat])
+            .setPopup(new mapboxgl.Popup().setText('Customer Location'))
+            .addTo(map);
+
+          // Update the ride status
+          document.getElementById('ride-status').textContent = 'Ride requested! Waiting for rider to accept...';
+          document.getElementById('ride-status').className = 'pending';
+
+          // Enable the "Accept Ride" button for the rider
+          document.getElementById('accept-ride').style.display = 'inline-block';
+        });
+      } else {
+        alert('Geolocation is not supported by this browser.');
+      }
+    }
+
+    // Accept Ride (Rider side)
+    function acceptRide() {
+      if (!customerLat || !customerLon) {
+        alert('No ride request to accept!');
+        return;
+      }
+
+      // Rider accepts the ride, add a marker for the rider
+      new mapboxgl.Marker({ color: 'green' })
+        .setLngLat([customerLon, customerLat])
+        .setPopup(new mapboxgl.Popup().setText('Rider Accepted Ride'))
+        .addTo(map);
+
+      // Update ride status
+      document.getElementById('ride-status').textContent = 'Ride accepted! Rider is on the way.';
+      document.getElementById('ride-status').className = 'accepted';
+
+      // Hide the "Accept Ride" button after acceptance
+      document.getElementById('accept-ride').style.display = 'none';
+
+      // Simulate routing or navigation (optional)
+      riderAccepted = true;
+    }
+  </script>
+</body>
+</html>
